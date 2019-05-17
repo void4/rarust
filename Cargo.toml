@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["void4 <void4@users.noreply.github.com>"]
 
 [dependencies]
+num = "0.2.0"
+num-traits = "0.2.0"
+num-derive = "0.2.0"
 
 [profile.dev]
 opt-level = 3

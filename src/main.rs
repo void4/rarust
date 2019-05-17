@@ -1,8 +1,11 @@
 #![allow(while_true)]
 #![feature(nll)]
-use std::mem;
 
-#[derive(Debug)]
+extern crate num_derive;
+extern crate num_traits;
+use num_traits::FromPrimitive;
+
+#[derive(Debug, num_derive::FromPrimitive)]
 enum Stati {
     NOR, //Normal
     HLT, //Halt
@@ -15,21 +18,7 @@ enum Stati {
     UOC, //UnknownCode
 }
 
-impl Stati {
-    fn from(t: u8) -> Stati {
-        let el: Stati = unsafe { std::mem::transmute(t) };
-        return el;
-    }
-    fn to_string(&self) -> String {
-        return format!("{:?}", self);
-    }
-
-    fn string_from_int(t: u8) -> String {
-        return Stati::from(t).to_string();
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, num_derive::FromPrimitive)]
 enum IS {
     HALT,
     RETURN,
@@ -64,20 +53,6 @@ enum IS {
     ECVERIFY,
     ROT,
     ROT2,
-}
-
-impl IS {
-    fn from(t: u8) -> IS {
-        let el: IS = unsafe { std::mem::transmute(t) };
-        return el;
-    }
-    fn to_string(&self) -> String {
-        return format!("{:?}", self);
-    }
-
-    fn string_from_int(t: u8) -> String {
-        return IS::from(t).to_string();
-    }
 }
 
 //Instruction length, stack reqs, additional memory, gas cost
@@ -126,12 +101,6 @@ struct Header {
     ip: u64,
 }
 
-#[derive(Debug)]
-struct Pair {
-    key: u64,
-    value: u64,
-}
-
 #[derive(Debug, Clone)]
 struct Process {
     header: Header,
@@ -144,7 +113,7 @@ struct Process {
 fn d(flat: &Vec<u64>) -> Process {
     let header: Header = unsafe { std::ptr::read(flat.as_ptr() as *const _) };
 
-    let CODELEN: usize = 5;
+    const CODELEN: usize = 5;
     let codelen: usize = flat[CODELEN] as usize;
     let stacklen: usize = flat[CODELEN + 1] as usize;
     let maplen: usize = flat[CODELEN + 2] as usize;
@@ -166,7 +135,7 @@ fn d(flat: &Vec<u64>) -> Process {
 
     end = end;
     let mut memory: Vec<Vec<u64>> = Vec::new();
-    for area in 0..memorylen {
+    for _area in 0..memorylen {
         let arealen: usize = flat[end] as usize;
         start = end + 1;
         end = start + arealen;
@@ -175,15 +144,13 @@ fn d(flat: &Vec<u64>) -> Process {
         memory.push(areavec);
     }
 
-    let mut sharp: Process = Process {
+    return Process {
         header: header,
         code: code,
         stack: stack,
         map: map,
         memory: memory,
     };
-
-    return sharp;
 }
 
 fn s(sharp: &Process) -> Vec<u64> {
@@ -217,8 +184,6 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
     let mut sizes: Vec<u64> = vec![s(&sharp).len() as u64];
     let mut states: Vec<(Process)> = vec![sharp]; //d(&flat)
 
-    let mut stacklen: usize = 0;
-    let mut instr: u64 = 0;
     let mut reqs: [i64; 4] = [0, 0, 0, 0];
     let statelen = states.len() - 1 as usize;
     states[statelen].header.status = Stati::NOR as u64;
@@ -229,7 +194,6 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
         let mut jump_back: i64 = -2;
         let blockret = {
             let mut instr: u64 = 0;
-            let mut reqs: [i64; 4] = [0, 0, 0, 0];
             let ref mut state = states[statelen];
             //println!("{:?} {:?}", state.header.gas, state.header.ip);
             if debug {
@@ -264,7 +228,7 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
             (instr.clone(), reqs.clone())
         };
 
-        instr = blockret.0;
+        let instr: u64 = blockret.0;
         reqs = blockret.1;
 
         fn valid_area(index: u64, process: &Process) -> bool {
@@ -306,11 +270,11 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
 
         let ie: IS = unsafe { std::mem::transmute(instr as i8) };
         let ref mut state = states[statelen];
-        stacklen = state.stack.len() as usize;
+        let stacklen: usize = state.stack.len() as usize;
         if debug {
             println!(
-                "INSTR: {} {:?}",
-                IS::string_from_int(instr as u8),
+                "INSTR: {:?} {:?}",
+                IS::from_u8(instr as u8),
                 state.header.ip
             );
         }
@@ -435,13 +399,13 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
             } else if ie == IS::ALLOC {
                 let size = state.stack.pop().unwrap();
                 let area = state.stack.pop().unwrap() as usize;
-                for i in 0..size {
+                for _i in 0..size {
                     state.memory[area].push(0); //XXX should use resize
                 }
             } else if ie == IS::DEALLOC {
                 let size = state.stack.pop().unwrap();
                 let area = state.stack.pop().unwrap() as usize;
-                for i in 0..size {
+                for _i in 0..size {
                     state.memory[area].pop(); //XXX should use resize
                 }
             } else if ie == IS::ROT2 {
@@ -463,14 +427,14 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
             }
 
             if reqs[2] < 0 {
-                let range = -reqs[2];
                 /*
+                let range = -reqs[2];
                 for i in 0..range {
                     state.stack.pop();
                 }
                 */
             }
-            let stackdiff: i64 = ((states[(states.len() - 1) as usize].stack.len() as i64)
+            let _stackdiff: i64 = ((states[(states.len() - 1) as usize].stack.len() as i64)
                 - (stacklen as i64)) as i64;
             let stateslen = states.len();
             for i in 0..states.len() {
@@ -483,8 +447,7 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
 }
 use std::io;
 use std::io::prelude::*;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 fn main() {
     let flat = vec![
         0, 0, 10000000, 100000000, 0, 713, 0, 0, 0, 6, 0, 19, 6, 0, 6, 1, 21, 6, 425, 4, 6, 0, 6,
@@ -518,18 +481,18 @@ fn main() {
     ];
     //println!("Start");
     let debug = false;
-    let NSPERS = 1000000000;
-    let startgas = 100000000000000;
+    const NSPERS: u32 = 1000000000;
+    const START_GAS: u64 = 100000000000000;
     let loopstart = Instant::now();
     let mut sharp: Process = d(&flat);
     loop {
         let now = Instant::now();
 
-        sharp = run(sharp, startgas, 10000000000000000, debug);
+        sharp = run(sharp, START_GAS, 10000000000000000, debug);
         let elapsed = now.elapsed();
 
         if false {
-            let gasdelta = (startgas - sharp.header.gas) as u32;
+            let gasdelta = (START_GAS - sharp.header.gas) as u32;
             let ips = NSPERS / (elapsed.subsec_nanos() / gasdelta);
             println!("{:?}", ips);
             //println!("{}", Stati::string_from_int(sharp.header.status as u8));
@@ -552,11 +515,11 @@ fn main() {
             break;
         }
 
-        //sleep(Duration::from_millis(200));
+        // std::thread::sleep(std::time::Duration::from_millis(200));
     }
     let looptime = loopstart.elapsed();
     if true {
-        let gasdelta = (startgas - sharp.header.gas) as u32;
+        let gasdelta = (START_GAS - sharp.header.gas) as u32;
         let ips = NSPERS / (looptime.subsec_nanos() / gasdelta);
         println!("{:?}", ips);
         //println!("{}", Stati::string_from_int(sharp.header.status as u8));
