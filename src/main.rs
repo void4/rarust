@@ -55,42 +55,217 @@ enum IS {
     ROT2,
 }
 
+#[derive(Clone)]
+struct Requirement {
+    length: i32,
+    stack_req: i32,
+    addtl_mem: i32,
+    gas_cost: i32,
+}
+
 //Instruction length, stack reqs, additional memory, gas cost
-const REQS: [[i64; 4]; 33] = [
-    [1, 0, 0, 1],
-    [1, 0, 0, 1],
-    [1, 0, 0, 1],
-    [1, 3, -3, 0],
-    [1, 1, -1, 1],
-    [1, 2, -2, 1],
-    [2, 0, 1, 2],
-    [1, 0, -1, 2], //XXX changed stack effect
-    [1, 0, 1, 4],
-    [1, 2, 0, 4],
-    [1, 2, -2, 10], //keys
-    [1, 1, 0, 4],
-    [1, 1, 0, 6],
-    [1, 1, -1, 4],
-    [1, 0, 1, 2], //lens
-    [1, 0, 1, 2],
-    [1, 1, 0, 2],
-    [1, 2, -1, 2], //r/w
-    [1, 3, -3, 2],
-    [1, 0, 1, 10],  //a/d
-    [1, 1, -1, 10], //use after free!
-    [1, 2, -2, 10], //alloc/dealloc
-    [1, 2, -2, 10],
-    [1, 2, -1, 6],
-    [1, 2, -1, 6],
-    [1, 1, 0, 4],
-    [1, 2, -1, 8],
-    [1, 2, -1, 10],
-    [1, 2, -1, 10],
-    [1, 1, 0, 100],
-    [1, 1, 0, 100],
-    [1, 3, 0, 10],
-    [1, 3, 0, 10],
-];
+fn requirement(is: IS) -> Requirement {
+    match is {
+        IS::HALT => Requirement {
+            length: 1,
+            stack_req: 0,
+            addtl_mem: 0,
+            gas_cost: 1,
+        },
+        IS::RETURN => Requirement {
+            length: 1,
+            stack_req: 0,
+            addtl_mem: 0,
+            gas_cost: 1,
+        },
+        IS::YIELD => Requirement {
+            length: 1,
+            stack_req: 0,
+            addtl_mem: 0,
+            gas_cost: 1,
+        },
+        IS::RUN => Requirement {
+            length: 1,
+            stack_req: 3,
+            addtl_mem: -3,
+            gas_cost: 0,
+        },
+        IS::JUMP => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: -1,
+            gas_cost: 1,
+        },
+        IS::JZ => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -2,
+            gas_cost: 1,
+        },
+        IS::PUSH => Requirement {
+            length: 2,
+            stack_req: 0,
+            addtl_mem: 1,
+            gas_cost: 2,
+        },
+        IS::POP => Requirement {
+            length: 1,
+            stack_req: 0,
+            addtl_mem: -1,
+            gas_cost: 2,
+        }, //XXX changed stack effect
+        IS::DUP => Requirement {
+            length: 1,
+            stack_req: 0,
+            addtl_mem: 1,
+            gas_cost: 4,
+        },
+        IS::FLIP => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: 0,
+            gas_cost: 4,
+        },
+        IS::KEYSET => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -2,
+            gas_cost: 10,
+        }, //keys
+        IS::KEYHAS => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: 0,
+            gas_cost: 4,
+        },
+        IS::KEYGET => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: 0,
+            gas_cost: 6,
+        },
+        IS::KEYDEL => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: -1,
+            gas_cost: 4,
+        },
+        IS::STACKLEN => Requirement {
+            length: 1,
+            stack_req: 0,
+            addtl_mem: 1,
+            gas_cost: 2,
+        }, //lens
+        IS::MEMORYLEN => Requirement {
+            length: 1,
+            stack_req: 0,
+            addtl_mem: 1,
+            gas_cost: 2,
+        },
+        IS::AREALEN => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: 0,
+            gas_cost: 2,
+        },
+        IS::READ => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -1,
+            gas_cost: 2,
+        }, //r/w
+        IS::WRITE => Requirement {
+            length: 1,
+            stack_req: 3,
+            addtl_mem: -3,
+            gas_cost: 2,
+        },
+        IS::AREA => Requirement {
+            length: 1,
+            stack_req: 0,
+            addtl_mem: 1,
+            gas_cost: 10,
+        }, //a/d
+        IS::DEAREA => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: -1,
+            gas_cost: 10,
+        }, //use after free!
+        IS::ALLOC => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -2,
+            gas_cost: 10,
+        }, //alloc/dealloc
+        IS::DEALLOC => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -2,
+            gas_cost: 10,
+        },
+        IS::ADD => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -1,
+            gas_cost: 6,
+        },
+        IS::SUB => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -1,
+            gas_cost: 6,
+        },
+        IS::NOT => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: 0,
+            gas_cost: 4,
+        },
+        IS::MUL => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -1,
+            gas_cost: 8,
+        },
+        IS::DIV => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -1,
+            gas_cost: 10,
+        },
+        IS::MOD => Requirement {
+            length: 1,
+            stack_req: 2,
+            addtl_mem: -1,
+            gas_cost: 10,
+        },
+        IS::SHA256 => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: 0,
+            gas_cost: 100,
+        },
+        IS::ECVERIFY => Requirement {
+            length: 1,
+            stack_req: 1,
+            addtl_mem: 0,
+            gas_cost: 100,
+        },
+        IS::ROT => Requirement {
+            length: 1,
+            stack_req: 3,
+            addtl_mem: 0,
+            gas_cost: 10,
+        },
+        IS::ROT2 => Requirement {
+            length: 1,
+            stack_req: 3,
+            addtl_mem: 0,
+            gas_cost: 10,
+        },
+    }
+}
 
 #[derive(Debug, Clone)]
 struct Header {
@@ -184,7 +359,6 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
     let mut sizes: Vec<u64> = vec![s(&sharp).len() as u64];
     let mut states: Vec<(Process)> = vec![sharp]; //d(&flat)
 
-    let mut reqs: [i64; 4] = [0, 0, 0, 0];
     let statelen = states.len() - 1 as usize;
     states[statelen].header.status = Stati::NOR as u64;
     states[statelen].header.gas = gas;
@@ -193,7 +367,7 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
     loop {
         let mut jump_back: i64 = -2;
         let blockret = {
-            let mut instr: u64 = 0;
+            let instr: u64 = 0;
             let ref mut state = states[statelen];
             //println!("{:?} {:?}", state.header.gas, state.header.ip);
             if debug {
@@ -203,33 +377,63 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
             if state.header.status != Stati::NOR as u64 {
                 //&& state.header.status != REC
                 jump_back = (statelen as i64) - 1;
+                (
+                    instr.clone(),
+                    Requirement {
+                        length: 0,
+                        stack_req: 0,
+                        addtl_mem: 0,
+                        gas_cost: 0,
+                    },
+                )
             } else if state.header.ip >= state.code.len() as u64 {
                 state.header.status = Stati::OOC as u64;
                 jump_back = (statelen as i64) - 1;
+                (
+                    instr.clone(),
+                    Requirement {
+                        length: 0,
+                        stack_req: 0,
+                        addtl_mem: 0,
+                        gas_cost: 0,
+                    },
+                )
             } else {
-                instr = state.code[state.header.ip as usize];
-                if instr >= REQS.len() as u64 {
-                    state.header.status = Stati::UOC as u64;
-                    jump_back = (statelen as i64) - 1;
-                } else {
-                    reqs = REQS[instr as usize];
-
-                    if state.header.ip + (reqs[0] as u64) - 1 >= state.code.len() as u64 {
-                        state.header.status = Stati::OOA as u64;
+                let instr = state.code[state.header.ip as usize];
+                let decoded: Option<IS> = IS::from_u64(instr);
+                match decoded {
+                    None => {
+                        state.header.status = Stati::UOC as u64;
                         jump_back = (statelen as i64) - 1;
+                        (
+                            instr.clone(),
+                            Requirement {
+                                length: 0,
+                                stack_req: 0,
+                                addtl_mem: 0,
+                                gas_cost: 0,
+                            },
+                        )
                     }
+                    Some(i) => {
+                        let reqs = requirement(i);
+                        if state.header.ip + (reqs.length as u64) - 1 >= state.code.len() as u64 {
+                            state.header.status = Stati::OOA as u64;
+                            jump_back = (statelen as i64) - 1;
+                        }
 
-                    if reqs[1] as u64 > state.stack.len() as u64 {
-                        state.header.status = Stati::OOS as u64;
-                        jump_back = (statelen as i64) - 1;
+                        if reqs.stack_req as u64 > state.stack.len() as u64 {
+                            state.header.status = Stati::OOS as u64;
+                            jump_back = (statelen as i64) - 1;
+                        }
+                        (instr, reqs.clone())
                     }
                 }
             }
-            (instr.clone(), reqs.clone())
         };
 
         let instr: u64 = blockret.0;
-        reqs = blockret.1;
+        let reqs = blockret.1;
 
         fn valid_area(index: u64, process: &Process) -> bool {
             return index < process.memory.len() as u64;
@@ -237,7 +441,7 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
 
         if jump_back == -2 {
             for psi in (0..states.len()).rev() {
-                let gascost = reqs[3] as u64;
+                let gascost = reqs.gas_cost as u64;
                 let memcost: u64 = gascost; //XXX(ps.1 + (reqs[2] as u64))*
 
                 if states[psi].header.mem < memcost {
@@ -423,10 +627,10 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
             }
 
             if !jump {
-                state.header.ip += reqs[0] as u64;
+                state.header.ip += reqs.length as u64;
             }
 
-            if reqs[2] < 0 {
+            if reqs.addtl_mem < 0 {
                 /*
                 let range = -reqs[2];
                 for i in 0..range {
@@ -439,7 +643,7 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
             let stateslen = states.len();
             for i in 0..states.len() {
                 states[stateslen - i - 1].header.gas -= 1; //reqs[2] as u64;
-                let memcost: u64 = (sizes[states.len() - i - 1]) * (reqs[3] as u64); //stackdiff
+                let memcost: u64 = (sizes[states.len() - i - 1]) * (reqs.gas_cost as u64); //stackdiff
                 states[stateslen - i - 1].header.mem -= memcost;
             }
         }
