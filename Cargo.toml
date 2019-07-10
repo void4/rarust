@@ -7,6 +7,7 @@ authors = ["void4 <void4@users.noreply.github.com>"]
 num = "0.2.0"
 num-traits = "0.2.0"
 num-derive = "0.2.0"
+byteorder = "1.3.2"
 
 [profile.dev]
 opt-level = 3
