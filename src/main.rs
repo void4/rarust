@@ -285,6 +285,9 @@ struct Process {
     memory: Vec<Vec<u64>>,
 }
 
+/**
+Deserialize the standard process snapshot format to the internal representation
+*/
 fn d(flat: &Vec<u64>) -> Process {
     let header: Header = unsafe { std::ptr::read(flat.as_ptr() as *const _) };
 
@@ -328,6 +331,9 @@ fn d(flat: &Vec<u64>) -> Process {
     };
 }
 
+/**
+Serialize the internal representation to the standard process snapshot format
+*/
 fn s(sharp: &Process) -> Vec<u64> {
     let mut flat: Vec<u64> = Vec::new();
     flat.push(sharp.header.status);
@@ -352,6 +358,9 @@ fn s(sharp: &Process) -> Vec<u64> {
     return flat;
 }
 
+/**
+Run a snapshot until an exit or error occurs
+*/
 fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
     //println!("Length of binary: {0}", flat.len());
     // Process, previously serialized length, rec index
@@ -649,9 +658,99 @@ fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
         }
     }
 }
+
+use std::collections::HashMap;
+
+struct Container {
+    sharp: Process,
+    table: HashMap<u64, fn(&mut Process)>,
+}
+
 use std::io;
 use std::io::prelude::*;
 use std::time::Instant;
+impl Container {
+    fn new(sharp: Process) -> Container {
+        let tab = HashMap::new();//<u64, fn(Process)>
+        Container {
+            sharp: sharp.clone(),
+            table: tab,
+        }
+    }
+
+    fn get(&self, key: u64) -> fn(&mut Process) {
+        self.table[&key]
+    }
+
+
+    fn add_func(&mut self, key: u64, fun: fn(&mut Process)) {
+        self.table.insert(key, fun);
+    }
+
+    fn run_io(&mut self) {//TODO mut sharp: Process
+
+        let debug = false;
+        const NSPERS: u32 = 1000000000;
+        const START_GAS: u64 = 100000000000000;
+        let loopstart = Instant::now();
+
+        loop {
+            let now = Instant::now();
+            // TODO why clone()?
+            self.sharp = run(self.sharp.clone(), START_GAS, 10000000000000000, debug);
+            let elapsed = now.elapsed();
+
+            if false {
+                let gasdelta = (START_GAS - self.sharp.header.gas) as u32;
+                let ips = NSPERS / (elapsed.subsec_nanos() / gasdelta);
+                println!("{:?}", ips);
+                //println!("{}", Stati::string_from_int(sharp.header.status as u8));
+                //println!("{}", sharp.header.ip);
+            }
+
+            let stacklen = self.sharp.stack.len();
+
+            //print!("{}", stacklen);
+            if self.sharp.header.status == (Stati::YLD as u64)
+                && stacklen >= 2
+            {
+
+                let funid = self.sharp.stack[stacklen - 2];
+                let func = self.table.get(&funid).map(|x| *x);
+
+                match func {
+                    Some(func) => func(&mut self.sharp),
+                    None => {
+                        println!("invalid op");
+                    }
+                };
+
+                self.sharp.stack.pop();
+            } else if self.sharp.header.status != Stati::NOR as u64 {
+                break;
+            }
+
+            // std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+
+        let looptime = loopstart.elapsed();
+        if true {
+            let gasdelta = (START_GAS - self.sharp.header.gas) as u32;
+            let ips = NSPERS / (looptime.subsec_nanos() / gasdelta);
+            println!("{:?}", ips);
+            //println!("{}", Stati::string_from_int(sharp.header.status as u8));
+            //println!("{}", sharp.header.ip);
+        }
+    }
+}
+
+fn print42(sharp: &mut Process) {
+    let ci: u32 = sharp.stack.pop().unwrap() as u32;
+    let c = std::char::from_u32(ci).unwrap();
+    print!("{}", c); //
+    io::stdout().flush().ok().expect("Could not flush stdout");
+}
+
 fn main() {
     let flat = vec![
         0, 0, 10000000, 100000000, 0, 713, 0, 0, 0, 6, 0, 19, 6, 0, 6, 1, 21, 6, 425, 4, 6, 0, 6,
@@ -684,51 +783,13 @@ fn main() {
         32, 18, 0,
     ];
     //println!("Start");
-    let debug = false;
-    const NSPERS: u32 = 1000000000;
-    const START_GAS: u64 = 100000000000000;
-    let loopstart = Instant::now();
     let mut sharp: Process = d(&flat);
-    loop {
-        let now = Instant::now();
 
-        sharp = run(sharp, START_GAS, 10000000000000000, debug);
-        let elapsed = now.elapsed();
+    //TODO from_sharp
 
-        if false {
-            let gasdelta = (START_GAS - sharp.header.gas) as u32;
-            let ips = NSPERS / (elapsed.subsec_nanos() / gasdelta);
-            println!("{:?}", ips);
-            //println!("{}", Stati::string_from_int(sharp.header.status as u8));
-            //println!("{}", sharp.header.ip);
-        }
-
-        let stacklen = sharp.stack.len();
-
-        //print!("{}", stacklen);
-        if sharp.header.status == (Stati::YLD as u64)
-            && stacklen >= 2
-            && sharp.stack[stacklen - 2] == 42
-        {
-            let ci: u32 = sharp.stack.pop().unwrap() as u32;
-            let c = std::char::from_u32(ci).unwrap();
-            print!("{}", c); //
-            io::stdout().flush().ok().expect("Could not flush stdout");
-            sharp.stack.pop();
-        } else if sharp.header.status != Stati::NOR as u64 {
-            break;
-        }
-
-        // std::thread::sleep(std::time::Duration::from_millis(200));
-    }
-    let looptime = loopstart.elapsed();
-    if true {
-        let gasdelta = (START_GAS - sharp.header.gas) as u32;
-        let ips = NSPERS / (looptime.subsec_nanos() / gasdelta);
-        println!("{:?}", ips);
-        //println!("{}", Stati::string_from_int(sharp.header.status as u8));
-        //println!("{}", sharp.header.ip);
-    }
+    let mut instance = Container::new(sharp);
+    instance.add_func(42, print42);
+    instance.run_io();
 
     //println!("Done.");
 }
