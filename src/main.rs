@@ -671,7 +671,7 @@ use std::io::prelude::*;
 use std::time::Instant;
 impl Container {
     fn new(sharp: Process) -> Container {
-        let tab = HashMap::new();//<u64, fn(Process)>
+        let tab = HashMap::new();
         Container {
             sharp: sharp.clone(),
             table: tab,
@@ -747,7 +747,7 @@ impl Container {
 fn print42(sharp: &mut Process) {
     let ci: u32 = sharp.stack.pop().unwrap() as u32;
     let c = std::char::from_u32(ci).unwrap();
-    print!("{}", c); //
+    print!("{}", c);
     io::stdout().flush().ok().expect("Could not flush stdout");
 }
 
@@ -803,13 +803,10 @@ fn main() {
     println!("Read: {} bytes", data.len());
     let mut flat: Vec<u64> = vec![0;data.len()/8];
     BigEndian::read_u64_into(&data, &mut flat);
-    //let mut rdr = Cursor::new(data);
-    //println!("{} {:?}", data.len(), flat);
 
     //println!("Start");
-    let mut sharp: Process = d(&flat);
 
-    //TODO from_sharp
+    let mut sharp: Process = d(&flat);
 
     let mut instance = Container::new(sharp);
     instance.add_func(42, print42);
