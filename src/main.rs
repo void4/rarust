@@ -751,8 +751,13 @@ fn print42(sharp: &mut Process) {
     io::stdout().flush().ok().expect("Could not flush stdout");
 }
 
-fn main() {
-    let flat = vec![
+use std::fs;
+extern crate byteorder;
+use std::io::Cursor;
+use byteorder::{ByteOrder, BigEndian, WriteBytesExt, ReadBytesExt};
+
+fn writeHelloBin() {
+    let hello : Vec<u64> = vec![
         0, 0, 10000000, 100000000, 0, 713, 0, 0, 0, 6, 0, 19, 6, 0, 6, 1, 21, 6, 425, 4, 6, 0, 6,
         2, 21, 6, 0, 8, 16, 6, 2, 24, 6, 0, 8, 17, 18, 6, 0, 8, 16, 6, 1, 24, 32, 18, 6, 0, 8, 8,
         16, 6, 2, 24, 18, 6, 42, 6, 0, 8, 8, 17, 6, 1, 24, 17, 2, 6, 0, 8, 16, 6, 1, 24, 17, 6, 0,
@@ -782,6 +787,25 @@ fn main() {
         8, 16, 6, 1, 24, 17, 6, 0, 8, 16, 6, 2, 24, 17, 6, 0, 8, 16, 6, 0, 8, 17, 24, 22, 6, 0, 8,
         32, 18, 0,
     ];
+
+    let mut vec8: Vec<u8> = vec![0;hello.len()*8];
+    BigEndian::write_u64_into(&hello, &mut vec8);
+
+    println!("Writing hello.bin: {} bytes", vec8.len());
+    fs::write("hello.bin", vec8).expect("Writing hello.bin failed");
+}
+
+fn main() {
+
+    writeHelloBin();
+
+    let data: Vec<u8> = fs::read("hello.bin").expect("Unable to read file");
+    println!("Read: {} bytes", data.len());
+    let mut flat: Vec<u64> = vec![0;data.len()/8];
+    BigEndian::read_u64_into(&data, &mut flat);
+    //let mut rdr = Cursor::new(data);
+    //println!("{} {:?}", data.len(), flat);
+
     //println!("Start");
     let mut sharp: Process = d(&flat);
 
