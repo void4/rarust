@@ -10,7 +10,7 @@ pub fn run(sharp: Process, gas: u64, mem: u64, debug: bool) -> Process {
     // Process, previously serialized length, rec index
     let mut edges: Vec<u64> = vec![0];
     let mut sizes: Vec<u64> = vec![s(&sharp).len() as u64];
-    let mut states: Vec<(Process)> = vec![sharp]; //d(&flat)
+    let mut states: Vec<Process> = vec![sharp]; //d(&flat)
 
     let statelen = states.len() - 1 as usize;
     states[statelen].header.status = Stati::NOR as u64;
